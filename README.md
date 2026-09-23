@@ -10,164 +10,298 @@ geoimg 38.8977,-77.0365
 
 It ships as one static binary for Windows, macOS and Linux, with no runtime dependencies.
 
+**Contents:** [Install](#install) · [Quick start](#quick-start) · [CLI reference](#cli-reference) · [Output files](#output-files) · [Metadata JSON reference](#metadata-json-reference) · [Recipes](#recipes) · [Do's and don'ts](#dos-and-donts) · [How it works](#how-it-works) · [Terms and attribution](#imagery-source-terms-and-attribution) · [Development](#development)
+
 ---
 
 ## Install
 
-### macOS / Linux
+Every tagged version is published on the [GitHub Releases page](https://github.com/osint-builders/geoimg/releases). Each release contains:
+
+| Asset | What it is |
+|---|---|
+| `geoimg_<os>_<arch>.tar.gz` / `.zip` | The binary for one platform, plus this README. |
+| `SHA256SUMS` | SHA-256 checksums of every archive. |
+| `install.sh` | One-line installer for macOS and Linux. |
+| `install.ps1` | One-line installer for Windows PowerShell. |
+
+Pick one of the options below. They all end with the same single `geoimg` binary on your `PATH`.
+
+### Option A: one-line installer (recommended)
+
+**macOS / Linux**
 
 ```sh
 curl -fsSL https://github.com/osint-builders/geoimg/releases/latest/download/install.sh | sh
 ```
 
-The script picks the right build for your OS and CPU and verifies its SHA-256 checksum. It installs to `/usr/local/bin`, or to `~/.local/bin` if that isn't writable. To pin a version, set `GEOIMG_VERSION=v0.1.0`; to choose the target folder, set `GEOIMG_INSTALL_DIR`.
+The script detects your OS and CPU, downloads the matching archive, **verifies its SHA-256 against `SHA256SUMS`**, and installs to `/usr/local/bin` (or `~/.local/bin` if that isn't writable). It prints a PATH hint if the folder isn't on your `PATH`.
 
-### Windows (PowerShell)
+| Variable | Effect |
+|---|---|
+| `GEOIMG_VERSION` | Install a specific tag instead of the latest, e.g. `GEOIMG_VERSION=v0.1.0`. |
+| `GEOIMG_INSTALL_DIR` | Install into this folder instead. |
+
+```sh
+# Pin a version and install into ~/bin
+curl -fsSL https://github.com/osint-builders/geoimg/releases/latest/download/install.sh \
+  | GEOIMG_VERSION=v0.1.0 GEOIMG_INSTALL_DIR="$HOME/bin" sh
+```
+
+**Windows (PowerShell)**
 
 ```powershell
 irm https://github.com/osint-builders/geoimg/releases/latest/download/install.ps1 | iex
 ```
 
-This installs to `%LOCALAPPDATA%\geoimg` and adds that folder to your user `PATH`.
+This detects x64 vs ARM64, verifies the checksum, installs to `%LOCALAPPDATA%\geoimg` and adds that folder to your user `PATH`. Open a new terminal afterwards. Set `$env:GEOIMG_VERSION = 'v0.1.0'` first to pin a version.
 
-### Manual download
+### Option B: manual download from the Releases page
 
-Grab the archive for your platform from the [Releases page](https://github.com/osint-builders/geoimg/releases/latest), extract it and put `geoimg` (or `geoimg.exe`) somewhere on your `PATH`.
+1. Open the [latest release](https://github.com/osint-builders/geoimg/releases/latest) (or pick an older one from the [releases list](https://github.com/osint-builders/geoimg/releases)).
+2. Under **Assets**, download the archive for your platform and `SHA256SUMS`:
 
-| Platform | Archive |
-|---|---|
-| Windows x64 | [`geoimg_windows_amd64.zip`](https://github.com/osint-builders/geoimg/releases/latest/download/geoimg_windows_amd64.zip) |
-| Windows ARM | [`geoimg_windows_arm64.zip`](https://github.com/osint-builders/geoimg/releases/latest/download/geoimg_windows_arm64.zip) |
-| macOS Apple Silicon | [`geoimg_darwin_arm64.tar.gz`](https://github.com/osint-builders/geoimg/releases/latest/download/geoimg_darwin_arm64.tar.gz) |
-| macOS Intel | [`geoimg_darwin_amd64.tar.gz`](https://github.com/osint-builders/geoimg/releases/latest/download/geoimg_darwin_amd64.tar.gz) |
-| Linux x64 | [`geoimg_linux_amd64.tar.gz`](https://github.com/osint-builders/geoimg/releases/latest/download/geoimg_linux_amd64.tar.gz) |
-| Linux ARM64 | [`geoimg_linux_arm64.tar.gz`](https://github.com/osint-builders/geoimg/releases/latest/download/geoimg_linux_arm64.tar.gz) |
+   | Platform | Archive |
+   |---|---|
+   | Windows x64 | [`geoimg_windows_amd64.zip`](https://github.com/osint-builders/geoimg/releases/latest/download/geoimg_windows_amd64.zip) |
+   | Windows ARM64 | [`geoimg_windows_arm64.zip`](https://github.com/osint-builders/geoimg/releases/latest/download/geoimg_windows_arm64.zip) |
+   | macOS Apple Silicon (M1–M4) | [`geoimg_darwin_arm64.tar.gz`](https://github.com/osint-builders/geoimg/releases/latest/download/geoimg_darwin_arm64.tar.gz) |
+   | macOS Intel | [`geoimg_darwin_amd64.tar.gz`](https://github.com/osint-builders/geoimg/releases/latest/download/geoimg_darwin_amd64.tar.gz) |
+   | Linux x64 | [`geoimg_linux_amd64.tar.gz`](https://github.com/osint-builders/geoimg/releases/latest/download/geoimg_linux_amd64.tar.gz) |
+   | Linux ARM64 (Raspberry Pi 4/5, Graviton) | [`geoimg_linux_arm64.tar.gz`](https://github.com/osint-builders/geoimg/releases/latest/download/geoimg_linux_arm64.tar.gz) |
 
-Checksums are published in `SHA256SUMS` alongside the archives.
+   Not sure which one? Run `uname -sm` (macOS/Linux) or `$env:PROCESSOR_ARCHITECTURE` (PowerShell). `x86_64`/`AMD64` means amd64; `arm64`/`aarch64`/`ARM64` means arm64.
 
-> **macOS note:** if you downloaded the archive with a browser, Gatekeeper may block the unsigned binary. Clear the quarantine flag with `xattr -d com.apple.quarantine ./geoimg`. The install script doesn't need this step.
+3. **Verify the checksum** (the hash printed must match the line for your archive in `SHA256SUMS`):
 
-### From source
+   ```sh
+   # Linux
+   sha256sum -c SHA256SUMS --ignore-missing
+   # macOS
+   shasum -a 256 -c SHA256SUMS --ignore-missing
+   ```
 
-Requires Go 1.24 or newer.
+   ```powershell
+   # Windows: compare with SHA256SUMS (case-insensitive)
+   (Get-FileHash .\geoimg_windows_amd64.zip -Algorithm SHA256).Hash
+   ```
+
+4. **Extract** and move the binary onto your `PATH`. Each archive contains a folder named after itself:
+
+   ```sh
+   # macOS / Linux
+   tar -xzf geoimg_linux_amd64.tar.gz
+   sudo install -m 0755 geoimg_linux_amd64/geoimg /usr/local/bin/geoimg
+   # or, without sudo:
+   mkdir -p ~/.local/bin && install -m 0755 geoimg_linux_amd64/geoimg ~/.local/bin/geoimg
+   ```
+
+   ```powershell
+   # Windows
+   Expand-Archive .\geoimg_windows_amd64.zip -DestinationPath .
+   New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\geoimg" | Out-Null
+   Copy-Item .\geoimg_windows_amd64\geoimg.exe "$env:LOCALAPPDATA\geoimg\"
+   # then add %LOCALAPPDATA%\geoimg to your user PATH (Settings → Environment Variables)
+   ```
+
+5. **macOS only:** a browser-downloaded binary is quarantined by Gatekeeper, which blocks unsigned binaries. Clear the flag once:
+
+   ```sh
+   xattr -d com.apple.quarantine /usr/local/bin/geoimg
+   ```
+
+   (The install script downloads with `curl`, which doesn't set the flag, so it doesn't need this.)
+
+6. **Check it works:**
+
+   ```sh
+   geoimg -version        # → geoimg v0.1.0
+   ```
+
+### Option C: from source
+
+Requires Go 1.24 or newer. The `nodynamic` tag keeps the WebP encoder pure Go, so no C toolchain is needed.
 
 ```sh
 go install -tags nodynamic github.com/osint-builders/geoimg/cmd/geoimg@latest
 ```
 
+A binary built this way reports its version as `dev`.
+
+### Upgrading and uninstalling
+
+- **Upgrade:** re-run the installer, or download the newer archive and overwrite the binary. There is no config or cache to migrate.
+- **Uninstall:** delete the binary (`/usr/local/bin/geoimg`, `~/.local/bin/geoimg`, or `%LOCALAPPDATA%\geoimg`) and, on Windows, remove that folder from your user `PATH`. geoimg writes nothing else outside the output paths you give it.
+
 ---
 
-## Usage
+## Quick start
+
+```sh
+# 1. Preview what an area costs. Nothing is downloaded.
+geoimg 38.8977,-77.0365 -n
+
+# 2. Download the sharpest imagery for it.
+geoimg 38.8977,-77.0365 -o whitehouse.webp
+```
+
+Typical output (zoom and sizes depend on the imagery available when you run it):
+
+```
+probing zoom levels 23→1 …                                   ← stderr
+zoom 19 (0.23 m/px) · 1722×1722 px · 49 tiles · 1 image(s)   ← stderr
+whitehouse.webp  1722×1722  …                                ← stdout
+whitehouse.json  metadata                                    ← stdout
+```
+
+You now have `whitehouse.webp` and `whitehouse.json`, which records which zoom was chosen, the exact bounds, and a SHA-256 of the image.
+
+---
+
+## CLI reference
+
+### Synopsis
 
 ```
 geoimg [flags] <target>
+geoimg -version
+geoimg -h
 ```
 
-The target is a single argument. Flags can go before or after it.
+- Exactly **one** target is required. Flags may go before or after it.
+- Every flag has a single-dash form (`-o`). Go's flag parser also accepts `--o`, `-o=file` and `-o file`.
+- Negative numbers are never mistaken for flags: `geoimg -33.8568,151.2153` works as-is.
+- `--` ends flag parsing; everything after it is positional.
 
-| Target | Meaning |
-|---|---|
-| `38.8977,-77.0365` | **Point**: `lat,lon`. The area is a square extending `-r` meters (default 200) from it on each side. |
-| `40.748,-74.00,40.750,-73.98` | **Box**: any two opposite corners, `lat,lon,lat,lon`. |
-| `area.geojson` | **GeoJSON**: Polygon, MultiPolygon, Point, LineString, Feature, FeatureCollection… |
-| `-` | GeoJSON read from stdin. |
+### Targets
 
-Coordinates are always **latitude first**, the same order Google Maps copies to your clipboard. GeoJSON files keep the standard `[lon, lat]` order.
+| Form | Kind | Example | Area covered |
+|---|---|---|---|
+| `lat,lon` | point | `38.8977,-77.0365` | A square extending `-r` meters (default 200) from the point to each edge, so 400 m × 400 m by default. |
+| `lat1,lon1,lat2,lon2` | bbox | `40.748,-74.00,40.750,-73.98` | The box between two **opposite corners**, in any order. |
+| `path/to/file.geojson` | geojson | `site.geojson` | The bounding box of every coordinate in the file. |
+| `-` | geojson | `cat a.geojson \| geoimg -` | Same, read from stdin. |
 
-### Examples
+Rules:
 
-```sh
-# The White House, sharpest imagery available, saved as WebP
-geoimg 38.8977,-77.0365 -o whitehouse.webp
-
-# 500 m around a point, as JPEG
-geoimg 48.8584,2.2945 -r 500 -o eiffel.jpg
-
-# A bounding box in Manhattan
-geoimg 40.748,-74.00,40.750,-73.98 -o midtown.webp
-
-# A GeoJSON polygon, masked to its outline (transparent outside), plus GIS sidecars
-geoimg site.geojson -clip -world -o site.png
-
-# See the zoom levels, tile counts and image sizes first; nothing is downloaded
-geoimg 40.748,-74.00,40.750,-73.98 -n
-
-# Pipe GeoJSON in
-cat parcels.geojson | geoimg - -o parcels.webp
-```
+- Command-line coordinates are **latitude first** (`lat,lon`), the order Google Maps copies to your clipboard. GeoJSON keeps the standard **`[lon, lat]`** order. Out-of-range values are rejected with a hint about the order.
+- Separators can be commas, semicolons or spaces, but a target containing spaces must be quoted: `"38.8977, -77.0365"`.
+- Supported GeoJSON types: `FeatureCollection`, `Feature`, `GeometryCollection`, `Point`, `MultiPoint`, `LineString`, `MultiLineString`, `Polygon`, `MultiPolygon`.
+- GeoJSON made only of points, or with zero width or height (e.g. a vertical line), is padded by `-r` meters.
+- A target cannot cross the antimeridian (±180° longitude). Split such areas into two runs.
 
 ### Flags
 
-| Flag | Default | Description |
+| Flag | Alias | Type | Default | Valid range | Description |
+|---|---|---|---|---|---|
+| `-o FILE` | `-out` | path | `geoimg-YYYYMMDD-HHMMSS.webp` | `.webp` `.jpg` `.jpeg` `.png` | Output image. The extension picks the format. Missing parent folders are created. |
+| `-r METERS` | `-radius` | float | `200` | `> 0` | Distance from a point target to each edge of the square. Also pads point-only GeoJSON. |
+| `-z ZOOM` | `-zoom` | int | `23` | `0`–`23` | Highest zoom to try. geoimg steps down from here only when it has to. |
+| `-q QUALITY` | `-quality` | int | `90` | `1`–`100` | Encoder quality. WebP at `100` is lossless. Ignored for PNG (always lossless). |
+| `-clip` | | bool | off | | Make everything outside the GeoJSON polygon(s) transparent (black for JPEG). Tiles fully outside are never downloaded. Requires a GeoJSON target containing `Polygon`/`MultiPolygon`. |
+| `-world` | | bool | off | | Write a world file (`.jgw`/`.pgw`/`.wld`) and `.prj` (EPSG:3857) next to every image. |
+| `-n` | `-dry-run` | bool | off | | Print per-zoom resolution, tile count, pixel size and image count, then exit. No network access. |
+| `-j N` | `-workers` | int | `16` | `1`–`64` | Concurrent downloads. |
+| `-quiet` | | bool | off | | Suppress progress output on stderr. Results and warnings still print. |
+| `-version` | | bool | | | Print `geoimg <version>` and exit. |
+| `-h` | `-help` | | | | Print usage and exit `0`. |
+
+**Advanced flags**
+
+| Flag | Type | Default | Valid range | Description |
+|---|---|---|---|---|
+| `-min-zoom Z` | int | `1` | `0`–`-z` | Lowest zoom geoimg will accept. The run fails rather than go below it. |
+| `-max-tiles N` | int | `20000` | `≥ 1` | Safety ceiling on tiles per run. Zooms over budget are skipped without any network access. If nothing fits even at `-min-zoom`, geoimg refuses before downloading. |
+| `-chunk PX` | int | `8192` | `256`–`16383` (WebP), `256`–`65535` (JPEG) | Largest single image edge. Bigger outputs become a grid of images plus an overview. |
+| `-coverage F` | float | `0.5` | `(0, 1]` | Fraction of probe tiles that must hold real imagery for a zoom to be accepted. The holes are gap-filled. |
+| `-detail F` | float | `0.2` | `≥ 0` | Upsampling-detector threshold (see [How it works](#2-zoom-selection-sharpest-by-default)). `0` disables it. |
+| `-url TEMPLATE` | string | Esri World Imagery | must contain `{z}`, `{x}`, `{y}` | Any XYZ tile server. |
+| `-token KEY` | string | `$ARCGIS_API_KEY` | | ArcGIS API key or token, appended to each request as `?token=` (or `&token=`). Redacted from error messages and never written to the JSON. |
+
+### Environment variables
+
+| Variable | Used by | Effect |
 |---|---|---|
-| `-o FILE` | `geoimg-<time>.webp` | Output image. The extension picks the format: `.webp`, `.jpg`, `.png`. |
-| `-r METERS` | `200` | Distance from a point target to each edge of the square. |
-| `-z ZOOM` | `23` | Highest zoom to try. geoimg steps down only when it has to. |
-| `-q QUALITY` | `90` | Quality from 1 to 100. `.webp` at 100 is lossless; PNG is always lossless. |
-| `-clip` | off | Mask the output to the GeoJSON polygon(s). Tiles fully outside are never downloaded. |
-| `-world` | off | Write a world file (`.jgw`/`.pgw`/`.wld`) and `.prj` (EPSG:3857) so QGIS, ArcGIS and GDAL place the image exactly. |
-| `-n` | off | Dry run: print per-zoom resolution, tile counts and image sizes, then exit. |
-| `-j N` | `16` | Number of concurrent downloads. |
-| `-quiet` | off | Suppress progress output. |
-| `-version` | | Print the version. |
+| `ARCGIS_API_KEY` | `geoimg` | Default for `-token`. |
+| `GEOIMG_VERSION` | installers | Tag to install. |
+| `GEOIMG_INSTALL_DIR` | `install.sh` | Install folder. |
 
-<details>
-<summary>Advanced flags</summary>
+### Streams
 
-| Flag | Default | Description |
-|---|---|---|
-| `-min-zoom Z` | `1` | Lowest zoom geoimg will accept. |
-| `-max-tiles N` | `20000` | Safety ceiling on tiles per run. Zoom is lowered automatically to fit it. If the area doesn't fit even at `-min-zoom`, geoimg refuses before downloading anything. |
-| `-chunk PX` | `8192` | Largest single image edge. Bigger areas are split into a grid of images (see below). Max 16383 for WebP. |
-| `-coverage F` | `0.5` | Fraction of probe tiles that must hold real imagery for a zoom to be accepted. Holes are gap-filled. |
-| `-detail F` | `0.2` | Upsampling-detector threshold (see below). `0` disables the detector. |
-| `-url TEMPLATE` | Esri World Imagery | Any XYZ tile server, using `{z}`, `{x}` and `{y}` placeholders. |
-| `-token KEY` | `$ARCGIS_API_KEY` | ArcGIS API key or token, appended as `?token=`. |
-
-</details>
+| Stream | Contents |
+|---|---|
+| **stdout** | Only results: one line per written image (`path  W×H  size`) or a grid summary plus the overview line, then `<meta>.json  metadata`. In dry-run mode, the zoom table. Safe to parse. |
+| **stderr** | Progress (`probing…`, `zoom …`, the tile counter), warnings and errors. The live tile counter appears only when stderr is a terminal. `-quiet` hides progress, not errors or warnings. |
 
 ### Exit codes
 
-| Code | Meaning |
-|---|---|
-| `0` | Success. |
-| `1` | Error: network failure, server refusal, or an area too large for the budget. |
-| `2` | Usage error: bad target or flag. |
-| `3` | Output was written, but some tiles had no imagery at any zoom. They are listed in the JSON. |
+| Code | Meaning | What to do |
+|---|---|---|
+| `0` | Success. All tiles have imagery. | |
+| `1` | Runtime error: network failure, server refusal (401/403), write failure, or the area doesn't fit `-max-tiles` at any zoom ≥ `-min-zoom`. Also Ctrl-C (prints `interrupted`). | Read the message on stderr. For budget errors, shrink the area or raise `-max-tiles`/lower `-min-zoom`. |
+| `2` | Usage error: bad target, unknown flag, out-of-range value, unsupported extension, `-clip` without polygons, or `-chunk` over the format limit. Nothing was downloaded. | Fix the command. |
+| `3` | Output was written, but some tiles had no imagery at any zoom (filled black/transparent). | Check `gap_tiles` in the JSON. Often open ocean or the poles. |
 
 ---
 
-## What you get
+## Output files
 
-A small area produces one image and its metadata:
+Given `-o NAME.EXT`:
 
-```
-whitehouse.webp      the stitched image, cropped to exactly your area
-whitehouse.json      metadata (see below)
-```
+| File | When | Contents |
+|---|---|---|
+| `NAME.EXT` | output fits in one `-chunk` | The stitched image, cropped to exactly your area. |
+| `NAME_rRR_cCC.EXT` | output larger than `-chunk` | One image per grid cell. Row/column are zero-padded to at least 2 digits (`_r00_c00`, `_r00_c01`, …). |
+| `NAME_overview.EXT` | chunked output | The whole area, box-filtered to ≤ 4096 px on its longest edge. |
+| `*.jgw` / `*.pgw` / `*.wld` + `*.prj` | `-world` | For each image: an ESRI world file (JPEG/PNG/WebP respectively) and an EPSG:3857 projection file. |
+| `NAME.json` | always | The [metadata sidecar](#metadata-json-reference). |
 
-A large area is split into a grid of images, plus a downscaled overview of the whole area:
+Images and JSON are written to a temp file and renamed into place, so an interrupted run never leaves a half-written file. Existing files with the same names are **overwritten**.
 
-```
-county_r00_c00.webp  county_r00_c01.webp  …
-county_r01_c00.webp  …
-county_overview.webp   whole area, longest edge ≤ 4096 px
-county.json
-```
+### Formats
 
-`-world` adds a world file and `.prj` next to every image. The chunks then drop into any GIS as a seamless, georeferenced mosaic.
+| Extension | Max edge | Transparency | Notes |
+|---|---|---|---|
+| `.webp` (default) | 16383 px | yes | Best size for quality; `-q 100` is lossless. |
+| `.jpg` / `.jpeg` | 65535 px | no (clipped areas are black) | Most compatible, fastest to encode. |
+| `.png` | unlimited (chunked at `-chunk`) | yes | Lossless, large. |
 
-### The metadata sidecar (`<out>.json`)
+---
 
-Every run records:
+## Metadata JSON reference
 
-- **Zoom decision**: the selected zoom and every level tried, each with its reason. The reason is one of "exceeds tile budget", "coverage 22% < 50%", "upsampled", or "imagery available".
-- **Resolution**: ground meters per pixel at the area's center, and the EPSG:3857 pixel size.
-- **Bounds**: the exact extent of the output in WGS84 and EPSG:3857, down to the pixel edge.
-- **Files**: path, pixel size, byte size, grid position, bounds and **SHA-256** for each image, so you can show later that a file hasn't been altered.
-- **Tile provenance**: counts of native, gap-filled, placeholder and empty tiles, with each non-native tile listed along with its source zoom.
-- **Source and attribution**: the URL template and Esri's required attribution string.
-- **Network**: request count, bytes downloaded, elapsed time.
+Every run writes `<out>.json` (the output path with its extension replaced). It is the machine-readable record of the run: use it to georeference, audit, or prove a file hasn't changed.
+
+| Field | Type | Description |
+|---|---|---|
+| `tool`, `version` | string | `"geoimg"` and the binary's version. |
+| `created_utc` | string | RFC 3339 start time. |
+| `source.provider` / `url_template` / `attribution` | string | Tile source and the attribution you must display. |
+| `target.kind` | string | `point`, `bbox` or `geojson`. |
+| `target.input` | string | The target argument as given (`stdin` for `-`). |
+| `target.radius_m` | number | Point targets only. |
+| `target.requested_bbox` | bbox | The area you asked for, in WGS84. |
+| `target.polygons` / `target.clip` | int / bool | Polygons found in the GeoJSON; whether `-clip` was used. |
+| `zoom.selected` | int | The zoom used. |
+| `zoom.max_requested` / `min_allowed` | int | `-z` and `-min-zoom`. |
+| `zoom.attempts[]` | array | Every zoom considered, highest first: `zoom`, `tiles`, `sampled`, `ok`, `missing`, `placeholder`, `failed`, `sharp`, `upsampled`, `accepted`, `reason`. Zero counts are omitted. |
+| `resolution.ground_m_per_px` | number | True ground meters per pixel at the area's center latitude. |
+| `resolution.epsg3857_m_per_px` | number | Pixel size in Web Mercator units (what the world file uses). |
+| `grid.tile_range` | object | `{z, x_min, y_min, x_max, y_max}` of source tiles. |
+| `grid.tile_count`, `pixel_width`, `pixel_height` | int | Size of the full output. |
+| `grid.chunk_rows`, `chunk_cols`, `chunk_max_side` | int | Chunk grid layout. |
+| `bounds.wgs84` | bbox | The **actual** image extent, snapped to pixel edges (slightly larger than requested). |
+| `bounds.epsg3857` | `[minx, miny, maxx, maxy]` | The same extent in meters, EPSG:3857. |
+| `output.format`, `output.quality` | string / int | Encoder settings. |
+| `output.files[]` | array | Per image: `path`, `row`, `col`, `width`, `height`, `bytes`, `sha256`, `bounds`, `world_file` (with `-world`). |
+| `output.overview` | object | Same shape as a file entry; present only for chunked output. |
+| `tiles` | object | Counts: `native`, `gap_filled`, `placeholder`, `empty`, `skipped_outside_clip`. |
+| `gap_tiles[]` | array | Every non-native tile: `tile {z,x,y}` and `source {kind, from_zoom}`, where `kind` is `gapfill`, `placeholder` or `empty`. Omitted when empty. |
+| `network` | object | `requests`, `bytes` downloaded, `workers`. |
+| `elapsed_seconds` | number | Wall time. |
+| `complete` | bool | `false` when any tile had no imagery (exit code `3`). |
+
+A `bbox` is `{"min_lat", "min_lon", "max_lat", "max_lon"}`.
 
 Excerpt:
 
@@ -191,6 +325,85 @@ Excerpt:
 ```
 
 The attempts above illustrate the kinds of decisions geoimg records. They aren't captured from a live run.
+
+---
+
+## Recipes
+
+```sh
+# The White House, sharpest imagery available, saved as WebP
+geoimg 38.8977,-77.0365 -o whitehouse.webp
+
+# 500 m around a point, as JPEG
+geoimg 48.8584,2.2945 -r 500 -o eiffel.jpg
+
+# Southern/western hemispheres: negative coordinates just work
+geoimg -33.8568,151.2153 -o opera-house.webp
+
+# A bounding box in Manhattan (any two opposite corners)
+geoimg 40.748,-74.00,40.750,-73.98 -o midtown.webp
+
+# A parcel polygon, transparent outside its outline, ready for QGIS
+geoimg site.geojson -clip -world -o site.png
+
+# GeoJSON from another tool on stdin
+ogr2ogr -f GeoJSON /vsistdout/ parcels.shp | geoimg - -o parcels.webp
+
+# Cap resolution at ~1 m/px for a fast, small overview of a big area
+geoimg 40.70,-74.02,40.80,-73.93 -z 17 -o manhattan.jpg
+
+# Large area on a small machine: smaller chunks, lower memory
+geoimg county.geojson -chunk 4096 -world -o out/county.webp
+
+# Use your own ArcGIS key without leaving it in shell history
+export ARCGIS_API_KEY=...   # or put it in your shell profile / secrets manager
+geoimg 51.5007,-0.1246 -o bigben.webp
+
+# Scripting: accept full or partial coverage, fail on anything else
+geoimg 38.8977,-77.0365 -quiet -o wh.webp; rc=$?
+case $rc in
+  0) ;;
+  3) echo "partial coverage, see gap_tiles in wh.json" >&2 ;;
+  *) exit $rc ;;
+esac
+jq '.zoom.selected, .resolution.ground_m_per_px' wh.json
+
+# Verify an image against its sidecar later
+jq -r '.output.files[] | "\(.sha256)  \(.path)"' wh.json | sha256sum -c
+```
+
+For the checksum check to pass, run it from the folder you ran geoimg in, since `path` is recorded as you passed it to `-o`.
+
+---
+
+## Do's and don'ts
+
+### Do
+
+- **Do run `-n` first** on anything bigger than a few city blocks. It costs nothing and shows tile counts and pixel sizes per zoom.
+- **Do give coordinates as `lat,lon`**, the way map apps copy them. Only GeoJSON uses `[lon, lat]`.
+- **Do quote targets that contain spaces**: `"38.8977, -77.0365"`.
+- **Do keep the `.json` sidecar with the image.** It holds the bounds, resolution, provenance and SHA-256; without it the image is just pixels.
+- **Do use `-world`** when the output is headed for QGIS, ArcGIS or GDAL. Use `-clip` when you only care about the inside of a polygon: it skips downloading tiles outside it.
+- **Do check the exit code in scripts.** Treat `3` as "usable, but inspect `gap_tiles`", not as success.
+- **Do pass `-token` through `ARCGIS_API_KEY`** for production or commercial work, and read Esri's terms.
+- **Do display the attribution** (`source.attribution` in the JSON) wherever the imagery is shown.
+- **Do lower `-chunk` to 4096** on machines with ≤ 2 GB free RAM.
+- **Do pin a version** (`GEOIMG_VERSION=v0.1.0`) in CI and scripts so results are reproducible.
+
+### Don't
+
+- **Don't swap latitude and longitude.** Swapped pairs are rejected only when the "latitude" exceeds ±90°. The White House as `-77.0365,38.8977` is a valid point in Antarctica and will happily download the wrong place. `-n` prints the resolved bbox; glance at it.
+- **Don't put spaces in a target without quotes.** `geoimg 38.8977, -77.0365` is two arguments and fails with exit `2`.
+- **Don't crank `-j` past 32 or raise `-max-tiles` casually.** You gain little speed and risk being rate-limited or blocked. The limit on `-j` is 64.
+- **Don't expect `-z 23` to mean 1.5 cm/px imagery.** It's where probing *starts*. geoimg drops to the highest zoom with real, non-upsampled imagery, and the JSON tells you which.
+- **Don't use `-clip` with a point or bbox target.** It needs GeoJSON polygons and exits `2` otherwise.
+- **Don't request areas that cross ±180° longitude.** Split them into two runs.
+- **Don't set `-chunk` above 16383 for WebP.** It's rejected; use JPEG or PNG for bigger single images, or keep chunking.
+- **Don't put secrets in `-url` or on the command line in shared shells.** `-url` is written to the JSON verbatim, and shell history keeps `-token`. Use `ARCGIS_API_KEY`.
+- **Don't reuse an output name you want to keep.** Existing files are overwritten without a prompt.
+- **Don't treat the public Esri endpoint as a licence** for bulk or commercial harvesting. See [Terms and attribution](#imagery-source-terms-and-attribution).
+- **Don't disable the detector (`-detail 0`)** unless you know the source never upsamples. Otherwise you may download 4–16× more tiles with no extra detail.
 
 ---
 
