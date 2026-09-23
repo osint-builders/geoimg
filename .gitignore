@@ -1,0 +1,10 @@
+/geoimg
+/geoimg.exe
+/dist/
+*.test
+*.out
+# outputs from local runs
+geoimg-*.webp
+geoimg-*.jpg
+geoimg-*.png
+geoimg-*.json
