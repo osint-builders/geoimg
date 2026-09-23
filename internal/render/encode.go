@@ -89,32 +89,36 @@ func Encode(w io.Writer, img image.Image, f Format, quality int) error {
 }
 
 // WriteFileAtomic encodes img to path via a temp file + rename and returns
-// the SHA-256 of the bytes written and the file size.
+// the SHA-256 of the bytes written and the file size. On any failure the temp
+// file is removed and path is left untouched.
 func WriteFileAtomic(path string, img image.Image, f Format, quality int) (sum string, size int64, err error) {
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".geoimg-*"+filepath.Ext(path))
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".geoimg-*"+filepath.Ext(path))
 	if err != nil {
 		return "", 0, err
 	}
-	defer func() {
-		if err != nil {
-			tmp.Close()
-			os.Remove(tmp.Name())
-		}
-	}()
+	sum, size, werr := writeHashed(tmp, img, f, quality)
+	if cerr := tmp.Close(); werr == nil {
+		werr = cerr
+	}
+	if werr == nil {
+		werr = os.Rename(tmp.Name(), path)
+	}
+	if werr != nil {
+		os.Remove(tmp.Name())
+		return "", 0, fmt.Errorf("writing %s: %w", path, werr)
+	}
+	return sum, size, nil
+}
+
+// writeHashed encodes img to w, returning the SHA-256 and byte count written.
+func writeHashed(w io.Writer, img image.Image, f Format, quality int) (sum string, size int64, err error) {
 	h := sha256.New()
-	cw := &countWriter{w: io.MultiWriter(tmp, h)}
+	cw := &countWriter{w: io.MultiWriter(w, h)}
 	bw := bufio.NewWriterSize(cw, 1<<20)
-	if err = Encode(bw, img, f, quality); err != nil {
-		return "", 0, fmt.Errorf("encoding %s: %w", path, err)
+	if err := Encode(bw, img, f, quality); err != nil {
+		return "", 0, fmt.Errorf("encoding: %w", err)
 	}
-	if err = bw.Flush(); err != nil {
-		return "", 0, err
-	}
-	if err = tmp.Close(); err != nil {
-		return "", 0, err
-	}
-	if err = os.Rename(tmp.Name(), path); err != nil {
+	if err := bw.Flush(); err != nil {
 		return "", 0, err
 	}
 	return hex.EncodeToString(h.Sum(nil)), cw.n, nil

@@ -59,7 +59,7 @@ func PlanChunks(w geo.Window, maxSide int) Layout {
 }
 
 // ChunkName returns the file name suffix for a chunk in a multi-chunk layout.
-func (l Layout) ChunkName(c Chunk) string {
+func (l *Layout) ChunkName(c *Chunk) string {
 	if len(l.Chunks) == 1 {
 		return ""
 	}

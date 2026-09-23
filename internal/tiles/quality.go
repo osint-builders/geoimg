@@ -44,7 +44,7 @@ func IsPlaceholder(img image.Image) bool {
 	return float64(near) >= 0.75*float64(total)
 }
 
-func rgb8(c color.Color) (uint8, uint8, uint8) {
+func rgb8(c color.Color) (r8, g8, b8 uint8) {
 	r, g, b, _ := c.RGBA()
 	return uint8(r >> 8), uint8(g >> 8), uint8(b >> 8)
 }
@@ -108,9 +108,9 @@ func (s Sharpness) Verdict(threshold float64) int {
 	return NativeRes
 }
 
-func luminance(img image.Image) ([]float64, int, int) {
+func luminance(img image.Image) (lum []float64, w, h int) {
 	b := img.Bounds()
-	w, h := b.Dx(), b.Dy()
+	w, h = b.Dx(), b.Dy()
 	out := make([]float64, w*h)
 	if yc, ok := img.(*image.YCbCr); ok {
 		for y := 0; y < h; y++ {
@@ -131,9 +131,9 @@ func luminance(img image.Image) ([]float64, int, int) {
 }
 
 // half box-downsamples by two.
-func half(l []float64, w, h int) ([]float64, int, int) {
-	w2, h2 := w/2, h/2
-	out := make([]float64, w2*h2)
+func half(l []float64, w, h int) (out []float64, w2, h2 int) {
+	w2, h2 = w/2, h/2
+	out = make([]float64, w2*h2)
 	for y := 0; y < h2; y++ {
 		for x := 0; x < w2; x++ {
 			i := 2*y*w + 2*x

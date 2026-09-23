@@ -197,7 +197,12 @@ func Render(t geo.Tile, native int) *image.RGBA {
 					bot := float64(c)*(1-ax) + float64(d)*ax
 					return uint8(top*(1-ay) + bot*ay)
 				}
-				c = color.RGBA{lerp(c00.R, c10.R, c01.R, c11.R), lerp(c00.G, c10.G, c01.G, c11.G), lerp(c00.B, c10.B, c01.B, c11.B), 255}
+				c = color.RGBA{
+					lerp(c00.R, c10.R, c01.R, c11.R),
+					lerp(c00.G, c10.G, c01.G, c11.G),
+					lerp(c00.B, c10.B, c01.B, c11.B),
+					255,
+				}
 			}
 			img.SetRGBA(px, py, c)
 		}

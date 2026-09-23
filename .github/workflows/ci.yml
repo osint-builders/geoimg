@@ -19,8 +19,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Lint
+      - name: Lint (goimports, golines, go vet, go-critic)
         if: runner.os == 'Linux'
+        env:
+          GOTOOLCHAIN: auto # pinned linters need a newer Go than the module minimum
         run: make lint
       - name: Test
         run: go test -race ./...

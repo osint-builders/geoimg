@@ -102,7 +102,13 @@ func (w Window) Height() int { return w.Y1 - w.Y0 }
 
 // Tiles returns the inclusive tile index range covering the window.
 func (w Window) Tiles() TileRange {
-	return TileRange{Z: w.Z, X0: w.X0 / TileSize, Y0: w.Y0 / TileSize, X1: (w.X1 - 1) / TileSize, Y1: (w.Y1 - 1) / TileSize}
+	return TileRange{
+		Z:  w.Z,
+		X0: w.X0 / TileSize,
+		Y0: w.Y0 / TileSize,
+		X1: (w.X1 - 1) / TileSize,
+		Y1: (w.Y1 - 1) / TileSize,
+	}
 }
 
 // BBox returns the exact geographic extent of the window's pixel edges.

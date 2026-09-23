@@ -156,7 +156,7 @@ func Upscale(img image.Image, t geo.Tile, up int) *image.RGBA {
 	return out
 }
 
-func splitCoord(v float64, lo, hi int) (int, float64) {
+func splitCoord(v float64, lo, hi int) (idx int, frac float64) {
 	if v < float64(lo) {
 		return lo, 0
 	}

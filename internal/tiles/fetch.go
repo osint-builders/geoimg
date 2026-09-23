@@ -133,7 +133,7 @@ func (f *Fetcher) get(ctx context.Context, u string) ([]byte, Status, error) {
 				return nil, Missing, err
 			}
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, http.NoBody)
 		if err != nil {
 			return nil, Missing, fmt.Errorf("%w: %v", ErrFatal, err)
 		}

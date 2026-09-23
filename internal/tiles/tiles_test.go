@@ -103,13 +103,19 @@ func TestSelectZoomBudgetAndCoverage(t *testing.T) {
 		want int
 	}{{1, 19}, {0.3, 20}} {
 		src := NewSource(NewFetcher(srv.Template(), "", "test", 8))
-		z, _, err := SelectZoom(context.Background(), src, b, ZoomOptions{MaxZoom: 20, MinZoom: 10, MaxTiles: 1e6, MinCoverage: tc.cov, Workers: 8, Batch: 3})
+		z, _, err := SelectZoom(
+			context.Background(),
+			src,
+			b,
+			ZoomOptions{MaxZoom: 20, MinZoom: 10, MaxTiles: 1e6, MinCoverage: tc.cov, Workers: 8, Batch: 3},
+		)
 		if err != nil || z != tc.want {
 			t.Fatalf("coverage %v: zoom %d err %v", tc.cov, z, err)
 		}
 	}
 
-	if _, _, err := SelectZoom(context.Background(), src, b, ZoomOptions{MaxZoom: 20, MinZoom: 19, MaxTiles: 1}); err == nil || !strings.Contains(err.Error(), "too large") {
+	if _, _, err := SelectZoom(context.Background(), src, b, ZoomOptions{MaxZoom: 20, MinZoom: 19, MaxTiles: 1}); err == nil ||
+		!strings.Contains(err.Error(), "too large") {
 		t.Fatalf("budget error: %v", err)
 	}
 }

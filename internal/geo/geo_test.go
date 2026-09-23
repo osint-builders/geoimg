@@ -163,7 +163,8 @@ func TestParseGeoJSON(t *testing.T) {
 		`{"type":"FeatureCollection","features":[]}`:                                              "no coordinates",
 		`not json`: "invalid GeoJSON",
 	} {
-		if _, err := ParseTarget(write("bad.geojson", body), 100, nil); err == nil || !strings.Contains(err.Error(), want) {
+		if _, err := ParseTarget(write("bad.geojson", body), 100, nil); err == nil ||
+			!strings.Contains(err.Error(), want) {
 			t.Errorf("%s: err = %v, want %q", body, err, want)
 		}
 	}

@@ -55,11 +55,19 @@ func SelectZoom(ctx context.Context, src *Source, box geo.BBox, o ZoomOptions) (
 			top = z
 			break
 		}
-		attempts = append(attempts, ZoomAttempt{Zoom: z, Tiles: n, Reason: fmt.Sprintf("exceeds tile budget (%d > %d)", n, o.MaxTiles)})
+		attempts = append(
+			attempts,
+			ZoomAttempt{Zoom: z, Tiles: n, Reason: fmt.Sprintf("exceeds tile budget (%d > %d)", n, o.MaxTiles)},
+		)
 	}
 	if top < 0 {
 		n := box.PixelWindow(o.MinZoom).Tiles().Count()
-		return 0, attempts, fmt.Errorf("area too large: needs %d tiles even at zoom %d (budget %d); shrink the area or raise -max-tiles", n, o.MinZoom, o.MaxTiles)
+		return 0, attempts, fmt.Errorf(
+			"area too large: needs %d tiles even at zoom %d (budget %d); shrink the area or raise -max-tiles",
+			n,
+			o.MinZoom,
+			o.MaxTiles,
+		)
 	}
 	batch := max(o.Batch, 1)
 	for hi := top; hi >= o.MinZoom; hi -= batch {
@@ -93,7 +101,7 @@ type probeResult struct {
 
 // allFailed returns a fetch error when every sample in every level of the
 // batch failed at the network level: stepping down zoom would not help.
-func allFailed(rs map[int]probeResult) error {
+func allFailed(rs map[int]*probeResult) error {
 	var last error
 	for _, r := range rs {
 		if r.err != nil || r.Failed < r.Sampled || r.Sampled == 0 {
@@ -104,7 +112,7 @@ func allFailed(rs map[int]probeResult) error {
 	return last
 }
 
-func probeLevels(ctx context.Context, src *Source, box geo.BBox, hi, lo int, o ZoomOptions) map[int]probeResult {
+func probeLevels(ctx context.Context, src *Source, box geo.BBox, hi, lo int, o ZoomOptions) map[int]*probeResult {
 	var jobs []geo.Tile
 	samples := map[int][]geo.Tile{}
 	for z := hi; z >= lo; z-- {
@@ -117,7 +125,7 @@ func probeLevels(ctx context.Context, src *Source, box geo.BBox, hi, lo int, o Z
 		return nil
 	})
 
-	out := map[int]probeResult{}
+	out := map[int]*probeResult{}
 	for z := hi; z >= lo; z-- {
 		a := ZoomAttempt{Zoom: z, Tiles: box.PixelWindow(z).Tiles().Count(), Sampled: len(samples[z])}
 		var fatal, last error
@@ -147,7 +155,7 @@ func probeLevels(ctx context.Context, src *Source, box geo.BBox, hi, lo int, o Z
 			}
 		}
 		if fatal != nil {
-			out[z] = probeResult{err: fatal}
+			out[z] = &probeResult{err: fatal}
 			continue
 		}
 		cov := float64(a.OK) / float64(max(a.Sampled, 1))
@@ -155,11 +163,15 @@ func probeLevels(ctx context.Context, src *Source, box geo.BBox, hi, lo int, o Z
 		case cov < o.MinCoverage:
 			a.Reason = fmt.Sprintf("coverage %.0f%% < %.0f%%", cov*100, o.MinCoverage*100)
 		case a.Upsampled > a.Sharp:
-			a.Reason = fmt.Sprintf("upsampled: %d of %d judged samples lack native detail", a.Upsampled, a.Upsampled+a.Sharp)
+			a.Reason = fmt.Sprintf(
+				"upsampled: %d of %d judged samples lack native detail",
+				a.Upsampled,
+				a.Upsampled+a.Sharp,
+			)
 		default:
 			a.Accepted, a.Reason = true, "imagery available"
 		}
-		out[z] = probeResult{ZoomAttempt: a, lastErr: last}
+		out[z] = &probeResult{ZoomAttempt: a, lastErr: last}
 	}
 	return out
 }

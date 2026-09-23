@@ -17,7 +17,7 @@ import (
 func TestPlanChunks(t *testing.T) {
 	w := geo.Window{Z: 18, X0: 1000, Y0: 2000, X1: 1000 + 5000, Y1: 2000 + 3000}
 	single := PlanChunks(w, 8192)
-	if len(single.Chunks) != 1 || single.Chunks[0].Window != w || single.ChunkName(single.Chunks[0]) != "" {
+	if len(single.Chunks) != 1 || single.Chunks[0].Window != w || single.ChunkName(&single.Chunks[0]) != "" {
 		t.Fatalf("%+v", single)
 	}
 	l := PlanChunks(w, 2048)
@@ -38,10 +38,16 @@ func TestPlanChunks(t *testing.T) {
 		}
 	}
 	if area != w.Width()*w.Height() || len(tilesSeen) != w.Tiles().Count() {
-		t.Fatalf("chunks cover %d px / %d tiles, want %d / %d", area, len(tilesSeen), w.Width()*w.Height(), w.Tiles().Count())
+		t.Fatalf(
+			"chunks cover %d px / %d tiles, want %d / %d",
+			area,
+			len(tilesSeen),
+			w.Width()*w.Height(),
+			w.Tiles().Count(),
+		)
 	}
-	if l.Rows*l.Cols != len(l.Chunks) || l.ChunkName(l.Chunks[len(l.Chunks)-1]) != "_r01_c02" {
-		t.Fatalf("%dx%d %q", l.Rows, l.Cols, l.ChunkName(l.Chunks[len(l.Chunks)-1]))
+	if l.Rows*l.Cols != len(l.Chunks) || l.ChunkName(&l.Chunks[len(l.Chunks)-1]) != "_r01_c02" {
+		t.Fatalf("%dx%d %q", l.Rows, l.Cols, l.ChunkName(&l.Chunks[len(l.Chunks)-1]))
 	}
 }
 
@@ -72,7 +78,12 @@ func TestRenderStitchesExactPixels(t *testing.T) {
 	w := geo.Window{Z: 17, X0: 37488*256 + 37, Y0: 50144*256 + 201, X1: 37488*256 + 37 + 700, Y1: 50144*256 + 201 + 450}
 	dir := t.TempDir()
 	out := filepath.Join(dir, "x.png")
-	res, err := Render(context.Background(), src, PlanChunks(w, 8192), Options{Out: out, Format: PNG, Quality: 90, Workers: 4, WorldFile: true})
+	res, err := Render(
+		context.Background(),
+		src,
+		ptr(PlanChunks(w, 8192)),
+		Options{Out: out, Format: PNG, Quality: 90, Workers: 4, WorldFile: true},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +130,7 @@ func TestRenderChunksAndOverview(t *testing.T) {
 	w := geo.Window{Z: 16, X0: 18744*256 + 10, Y0: 25072*256 + 10, X1: 18744*256 + 10 + 1300, Y1: 25072*256 + 10 + 700}
 	out := filepath.Join(t.TempDir(), "big.webp")
 	l := PlanChunks(w, 512)
-	res, err := Render(context.Background(), src, l, Options{Out: out, Format: WebP, Quality: 80, Workers: 8})
+	res, err := Render(context.Background(), src, &l, Options{Out: out, Format: WebP, Quality: 80, Workers: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,3 +171,5 @@ func abs(v float64) float64 {
 	}
 	return v
 }
+
+func ptr[T any](v T) *T { return &v }

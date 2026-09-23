@@ -54,7 +54,10 @@ func ParseTarget(arg string, radius float64, stdin io.Reader) (Target, error) {
 	data, err := os.ReadFile(arg)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return Target{}, fmt.Errorf("%q is neither coordinates (lat,lon or lat1,lon1,lat2,lon2) nor an existing GeoJSON file", arg)
+			return Target{}, fmt.Errorf(
+				"%q is neither coordinates (lat,lon or lat1,lon1,lat2,lon2) nor an existing GeoJSON file",
+				arg,
+			)
 		}
 		return Target{}, err
 	}
@@ -135,7 +138,7 @@ func parseGeoJSON(data []byte, name string, radius float64) (Target, error) {
 		return Target{}, fmt.Errorf("%s: invalid GeoJSON: %w", name, err)
 	}
 	c := &gjCollector{box: EmptyBBox(), onlyPoints: true}
-	if err := c.walk(root); err != nil {
+	if err := c.walk(&root); err != nil {
 		return Target{}, fmt.Errorf("%s: %w", name, err)
 	}
 	if c.count == 0 {
@@ -151,21 +154,21 @@ func parseGeoJSON(data []byte, name string, radius float64) (Target, error) {
 	return Target{Kind: KindGeoJSON, Input: name, BBox: b, Polygons: c.polys}, b.Validate()
 }
 
-func (c *gjCollector) walk(o gjObject) error {
+func (c *gjCollector) walk(o *gjObject) error {
 	switch o.Type {
 	case "FeatureCollection":
-		for _, f := range o.Features {
-			if err := c.walk(f); err != nil {
+		for i := range o.Features {
+			if err := c.walk(&o.Features[i]); err != nil {
 				return err
 			}
 		}
 	case "Feature":
 		if o.Geometry != nil {
-			return c.walk(*o.Geometry)
+			return c.walk(o.Geometry)
 		}
 	case "GeometryCollection":
-		for _, g := range o.Geometries {
-			if err := c.walk(g); err != nil {
+		for i := range o.Geometries {
+			if err := c.walk(&o.Geometries[i]); err != nil {
 				return err
 			}
 		}
@@ -213,7 +216,7 @@ func (c *gjCollector) walk(o gjObject) error {
 	return nil
 }
 
-func (c *gjCollector) decode(o gjObject, dst any, then func() error) error {
+func (c *gjCollector) decode(o *gjObject, dst any, then func() error) error {
 	if err := json.Unmarshal(o.Coordinates, dst); err != nil {
 		return fmt.Errorf("%s: bad coordinates: %w", o.Type, err)
 	}

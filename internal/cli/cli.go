@@ -83,7 +83,12 @@ func Run(ctx context.Context, version string, args []string, stdin io.Reader, st
 	num(&c.minZoom, DefaultMinZoom, "lowest acceptable zoom", "min-zoom")
 	num(&c.maxTiles, DefaultMaxTiles, "safety ceiling on tiles per run", "max-tiles")
 	num(&c.chunk, DefaultChunk, "max pixels per image side before splitting into chunks", "chunk")
-	fs.Float64Var(&c.coverage, "coverage", DefaultCoverage, "fraction of probe tiles that must have imagery to accept a zoom")
+	fs.Float64Var(
+		&c.coverage,
+		"coverage",
+		DefaultCoverage,
+		"fraction of probe tiles that must have imagery to accept a zoom",
+	)
 	fs.Float64Var(&c.detail, "detail", DefaultDetailRatio, "upsampling detector threshold (0 = off)")
 	str(&c.url, tiles.DefaultURL, "tile URL template with {z} {x} {y}", "url")
 	str(&c.token, "", "ArcGIS API key / token (default $ARCGIS_API_KEY)", "token")
@@ -103,7 +108,12 @@ func Run(ctx context.Context, version string, args []string, stdin io.Reader, st
 	if len(pos) != 1 {
 		fmt.Fprint(stderr, usage)
 		if len(pos) > 1 {
-			fmt.Fprintf(stderr, "\nerror: expected one target, got %d: %s\n(no spaces inside coordinates, or quote them)\n", len(pos), strings.Join(pos, " "))
+			fmt.Fprintf(
+				stderr,
+				"\nerror: expected one target, got %d: %s\n(no spaces inside coordinates, or quote them)\n",
+				len(pos),
+				strings.Join(pos, " "),
+			)
 		}
 		return ExitUsage
 	}
@@ -132,14 +142,20 @@ func Run(ctx context.Context, version string, args []string, stdin io.Reader, st
 		return ExitUsage
 	}
 	if c.chunk > format.MaxDim() {
-		fmt.Fprintf(stderr, "error: -chunk %d exceeds the %s limit of %d px per side\n", c.chunk, format, format.MaxDim())
+		fmt.Fprintf(
+			stderr,
+			"error: -chunk %d exceeds the %s limit of %d px per side\n",
+			c.chunk,
+			format,
+			format.MaxDim(),
+		)
 		return ExitUsage
 	}
 	if c.dryRun {
-		dryRun(stdout, c, target)
+		dryRun(stdout, &c, &target)
 		return ExitOK
 	}
-	code, err := execute(ctx, c, version, target, format, stdout, stderr)
+	code, err := execute(ctx, &c, version, &target, format, stdout, stderr)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			fmt.Fprintln(stderr, "\ninterrupted")
@@ -174,7 +190,14 @@ func (c *config) validate() error {
 	return nil
 }
 
-func execute(ctx context.Context, c config, version string, target geo.Target, format render.Format, stdout, stderr io.Writer) (int, error) {
+func execute(
+	ctx context.Context,
+	c *config,
+	version string,
+	target *geo.Target,
+	format render.Format,
+	stdout, stderr io.Writer,
+) (int, error) {
 	start := time.Now()
 	if dir := filepath.Dir(c.out); dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -212,7 +235,7 @@ func execute(ctx context.Context, c config, version string, target geo.Target, f
 		mask = render.NewMask(target.Polygons, zoom)
 	}
 	prog := newProgress(stderr, c.quiet)
-	res, err := render.Render(ctx, src, layout, render.Options{
+	res, err := render.Render(ctx, src, &layout, render.Options{
 		Out: c.out, Format: format, Quality: c.quality, WorldFile: c.world,
 		Mask: mask, Workers: c.workers, Progress: prog.update,
 	})
@@ -227,15 +250,31 @@ func execute(ctx context.Context, c config, version string, target geo.Target, f
 	m := Metadata{
 		Tool: "geoimg", Version: version, CreatedUTC: start.UTC().Format(time.RFC3339),
 		Source: MetaSource{Provider: "Esri World Imagery", URLTemplate: c.url, Attribution: tiles.Attribution},
-		Target: MetaTarget{Kind: target.Kind, Input: target.Input, BBox: target.BBox, Polygons: len(target.Polygons), Clip: c.clip},
-		Zoom:   MetaZoom{Selected: zoom, MaxTried: c.maxZoom, Min: c.minZoom, Attempts: attempts},
+		Target: MetaTarget{
+			Kind:     target.Kind,
+			Input:    target.Input,
+			BBox:     target.BBox,
+			Polygons: len(target.Polygons),
+			Clip:     c.clip,
+		},
+		Zoom: MetaZoom{Selected: zoom, MaxTried: c.maxZoom, Min: c.minZoom, Attempts: attempts},
 		Resolution: MetaResolution{
 			GroundMetersPerPixel:   round(geo.GroundResolution(lat, zoom), 4),
 			MercatorMetersPerPixel: round(geo.MetersPerPixel(zoom), 6),
 		},
-		Grid: MetaGrid{Tiles: win.Tiles(), TileCount: win.Tiles().Count(), PixelWidth: win.Width(), PixelHeight: win.Height(),
-			ChunkRows: layout.Rows, ChunkCols: layout.Cols, ChunkMaxSide: c.chunk},
-		Bounds:     MetaBounds{WGS84: bounds, EPSG3857: [4]float64{round(minx, 3), round(miny, 3), round(maxx, 3), round(maxy, 3)}},
+		Grid: MetaGrid{
+			Tiles:        win.Tiles(),
+			TileCount:    win.Tiles().Count(),
+			PixelWidth:   win.Width(),
+			PixelHeight:  win.Height(),
+			ChunkRows:    layout.Rows,
+			ChunkCols:    layout.Cols,
+			ChunkMaxSide: c.chunk,
+		},
+		Bounds: MetaBounds{
+			WGS84:    bounds,
+			EPSG3857: [4]float64{round(minx, 3), round(miny, 3), round(maxx, 3), round(maxy, 3)},
+		},
 		Output:     MetaOutput{Format: string(format), Quality: c.quality, Files: res.Files, Overview: res.Overview},
 		Tiles:      res.Stats,
 		GapTiles:   res.GapTiles,
@@ -256,7 +295,14 @@ func execute(ctx context.Context, c config, version string, target geo.Target, f
 		total += f.Bytes
 	}
 	if len(res.Files) == 1 {
-		fmt.Fprintf(stdout, "%s  %d×%d  %s\n", res.Files[0].Path, res.Files[0].Width, res.Files[0].Height, humanBytes(total))
+		fmt.Fprintf(
+			stdout,
+			"%s  %d×%d  %s\n",
+			res.Files[0].Path,
+			res.Files[0].Width,
+			res.Files[0].Height,
+			humanBytes(total),
+		)
 	} else {
 		fmt.Fprintf(stdout, "%d images (%d×%d grid)  %s total\n", len(res.Files), layout.Rows, layout.Cols, humanBytes(total))
 		if res.Overview != nil {
@@ -274,7 +320,7 @@ func execute(ctx context.Context, c config, version string, target geo.Target, f
 	return ExitOK, nil
 }
 
-func dryRun(w io.Writer, c config, t geo.Target) {
+func dryRun(w io.Writer, c *config, t *geo.Target) {
 	b := t.BBox
 	lat, _ := b.Center()
 	fmt.Fprintf(w, "target   %s (%s)\n", t.Input, t.Kind)
@@ -289,12 +335,25 @@ func dryRun(w io.Writer, c config, t geo.Target) {
 		if n > c.maxTiles {
 			note = "over -max-tiles budget"
 		}
-		fmt.Fprintf(w, "%4d  %9.3f  %8d  %6d×%-6d  %7d  %s\n", z, geo.GroundResolution(lat, z), n, win.Width(), win.Height(), len(l.Chunks), note)
+		fmt.Fprintf(
+			w,
+			"%4d  %9.3f  %8d  %6d×%-6d  %7d  %s\n",
+			z,
+			geo.GroundResolution(lat, z),
+			n,
+			win.Width(),
+			win.Height(),
+			len(l.Chunks),
+			note,
+		)
 		if n <= 1 {
 			break
 		}
 	}
-	fmt.Fprintln(w, "\nThe highest zoom within budget is probed first; geoimg steps down only where imagery is missing or upsampled.")
+	fmt.Fprintln(
+		w,
+		"\nThe highest zoom within budget is probed first; geoimg steps down only where imagery is missing or upsampled.",
+	)
 }
 
 type progress struct {

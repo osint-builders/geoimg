@@ -72,7 +72,7 @@ type encodeJob struct {
 // Render downloads, stitches and encodes every chunk of the layout. Chunks are
 // processed one after another to bound memory, but encoding chunk N overlaps
 // with downloading chunk N+1.
-func Render(ctx context.Context, src *tiles.Source, l Layout, o Options) (*Result, error) {
+func Render(ctx context.Context, src *tiles.Source, l *Layout, o Options) (*Result, error) {
 	res := &Result{}
 	var (
 		stats         [5]atomic.Int64
@@ -101,7 +101,7 @@ func Render(ctx context.Context, src *tiles.Source, l Layout, o Options) (*Resul
 			if encErr != nil {
 				continue // drain
 			}
-			path := base + l.ChunkName(j.chunk) + ext
+			path := base + l.ChunkName(&j.chunk) + ext
 			sum, size, err := WriteFileAtomic(path, j.canvas, o.Format, o.Quality)
 			if err != nil {
 				encErr = err
@@ -117,7 +117,13 @@ func Render(ctx context.Context, src *tiles.Source, l Layout, o Options) (*Resul
 			}
 			res.Files = append(res.Files, f)
 			if overview != nil {
-				downsampleInto(overview, j.canvas, j.chunk.Window.X0-l.Window.X0, j.chunk.Window.Y0-l.Window.Y0, overviewScale)
+				downsampleInto(
+					overview,
+					j.canvas,
+					j.chunk.Window.X0-l.Window.X0,
+					j.chunk.Window.Y0-l.Window.Y0,
+					overviewScale,
+				)
 			}
 		}
 	}()
@@ -197,9 +203,22 @@ func Render(ctx context.Context, src *tiles.Source, l Layout, o Options) (*Resul
 			return res, err
 		}
 		b := overview.Bounds()
-		res.Overview = &File{Path: path, Width: b.Dx(), Height: b.Dy(), Bytes: size, SHA256: sum, Bounds: l.Window.BBox()}
+		res.Overview = &File{
+			Path:   path,
+			Width:  b.Dx(),
+			Height: b.Dy(),
+			Bytes:  size,
+			SHA256: sum,
+			Bounds: l.Window.BBox(),
+		}
 	}
-	res.Stats = Stats{Native: stats[0].Load(), GapFilled: stats[1].Load(), Placeholder: stats[2].Load(), Empty: stats[3].Load(), Skipped: stats[4].Load()}
+	res.Stats = Stats{
+		Native:      stats[0].Load(),
+		GapFilled:   stats[1].Load(),
+		Placeholder: stats[2].Load(),
+		Empty:       stats[3].Load(),
+		Skipped:     stats[4].Load(),
+	}
 	return res, runErr
 }
 

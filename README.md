@@ -268,11 +268,14 @@ By default geoimg reads Esri's public **World Imagery** tile service (`server.ar
 ## Development
 
 ```sh
-make build     # ./geoimg for this machine
+make build     # the single static ./geoimg binary for this machine
 make test      # go test -race ./...
-make lint      # gofmt + go vet
+make fmt       # rewrite code with goimports + golines
+make lint      # goimports, golines (120 cols), go vet, go-critic (all checks)
 make dist      # cross-compile all release archives into dist/
 ```
+
+The linters are pinned in the `Makefile` and run through `go run`, so there's nothing to install. CI runs `make lint` on every push, and a PR must be clean under all four checks.
 
 The test suite needs no network. It runs against a synthetic tile server (`internal/tiles/tilestest`) that reproduces Esri's behaviours: a native maximum zoom, 404s, grey placeholders, server-side upsampling, holes and rate limiting.
 

@@ -20,10 +20,10 @@ import (
 	"github.com/osint-builders/geoimg/internal/tiles/tilestest"
 )
 
-func run(t *testing.T, args ...string) (int, string, string) {
+func run(t *testing.T, args ...string) (code int, stdout, stderr string) {
 	t.Helper()
 	var out, errb bytes.Buffer
-	code := Run(context.Background(), "test", args, strings.NewReader(""), &out, &errb)
+	code = Run(context.Background(), "test", args, strings.NewReader(""), &out, &errb)
 	return code, out.String(), errb.String()
 }
 
@@ -113,7 +113,17 @@ func TestChunkedBBox(t *testing.T) {
 	defer srv.Close()
 	dir := t.TempDir()
 	out := filepath.Join(dir, "grid.png")
-	code, stdout, stderr := run(t, "40.7480,-73.9900,40.7530,-73.9820", "-o", out, "-url", srv.Template(), "-chunk", "512", "-quiet")
+	code, stdout, stderr := run(
+		t,
+		"40.7480,-73.9900,40.7530,-73.9820",
+		"-o",
+		out,
+		"-url",
+		srv.Template(),
+		"-chunk",
+		"512",
+		"-quiet",
+	)
 	if code != ExitOK {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
@@ -141,7 +151,13 @@ func TestClipGeoJSON(t *testing.T) {
 	defer srv.Close()
 	dir := t.TempDir()
 	gj := filepath.Join(dir, "tri.geojson")
-	os.WriteFile(gj, []byte(`{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[-77.05,38.88],[-77.02,38.88],[-77.05,38.90],[-77.05,38.88]]]}}`), 0o644)
+	os.WriteFile(
+		gj,
+		[]byte(
+			`{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[-77.05,38.88],[-77.02,38.88],[-77.05,38.90],[-77.05,38.88]]]}}`,
+		),
+		0o644,
+	)
 	out := filepath.Join(dir, "tri.png")
 	code, _, stderr := run(t, gj, "-clip", "-o", out, "-url", srv.Template(), "-quiet")
 	if code != ExitOK {
@@ -168,7 +184,16 @@ func TestDryRunAndBudgetMakeNoRequests(t *testing.T) {
 	if code != ExitOK || !strings.Contains(stdout, "m/px") || srv.Requests.Load() != 0 {
 		t.Fatalf("dry run: exit %d requests %d\n%s", code, srv.Requests.Load(), stdout)
 	}
-	code, _, stderr := run(t, "30,-100,45,-80", "-url", srv.Template(), "-min-zoom", "15", "-o", filepath.Join(t.TempDir(), "x.webp"))
+	code, _, stderr := run(
+		t,
+		"30,-100,45,-80",
+		"-url",
+		srv.Template(),
+		"-min-zoom",
+		"15",
+		"-o",
+		filepath.Join(t.TempDir(), "x.webp"),
+	)
 	if code != ExitError || !strings.Contains(stderr, "too large") || srv.Requests.Load() != 0 {
 		t.Fatalf("budget: exit %d requests %d: %s", code, srv.Requests.Load(), stderr)
 	}
@@ -188,7 +213,19 @@ func TestPartialAndFatal(t *testing.T) {
 	tr := b.PixelWindow(17).Tiles()
 	holeX.Store(int64(tr.X0 + 1))
 	out := filepath.Join(t.TempDir(), "p.webp")
-	code, _, stderr := run(t, "38.8977,-77.0365", "-r", "150", "-o", out, "-url", srv.Template(), "-quiet", "-min-zoom", "17")
+	code, _, stderr := run(
+		t,
+		"38.8977,-77.0365",
+		"-r",
+		"150",
+		"-o",
+		out,
+		"-url",
+		srv.Template(),
+		"-quiet",
+		"-min-zoom",
+		"17",
+	)
 	if code != ExitPartial {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
@@ -197,7 +234,17 @@ func TestPartialAndFatal(t *testing.T) {
 		t.Fatalf("%+v", m.Tiles)
 	}
 
-	code, _, stderr = run(t, "38.8977,-77.0365", "-url", "http://127.0.0.1:1/{z}/{y}/{x}", "-o", filepath.Join(t.TempDir(), "x.webp"), "-quiet", "-j", "1")
+	code, _, stderr = run(
+		t,
+		"38.8977,-77.0365",
+		"-url",
+		"http://127.0.0.1:1/{z}/{y}/{x}",
+		"-o",
+		filepath.Join(t.TempDir(), "x.webp"),
+		"-quiet",
+		"-j",
+		"1",
+	)
 	if code != ExitError {
 		t.Fatalf("unreachable server: exit %d %s", code, stderr)
 	}
